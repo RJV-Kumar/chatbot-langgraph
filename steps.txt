@@ -3,5 +3,13 @@ Step1: to install libraries
 - myenv\Scripts\activate
 - pip install langgraph
 - pip install langchain
+// for openAI
 - pip install langchain_openai
+// for gemini 
+- pip install -U langchain-google-genai google-generativeai 
 - pip install dotenv
+- pip install streamlit
+
+# to run streamlit
+command: streamlit run filename.py
+then running on http://localhost:8501/
