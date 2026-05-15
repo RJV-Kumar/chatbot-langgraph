@@ -1,18 +1,10 @@
+import os
 from typing import TypedDict, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain_core.messages import BaseMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from streamlit_frontend import message_history
-from langchain_core.messages import HumanMessage
-
-thread_id = '1'
-CONFIG = {
-        'configurable': {
-            'thread_id': thread_id
-        }
-    }
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -20,7 +12,7 @@ load_dotenv()
 selectedModel="gemini-2.5-flash"
 
 llm = ChatGoogleGenerativeAI(
-    model=selectedModel,
+    model= os.getenv("SELECTED_MODEL"),
     temperature=0.7
 )
 
