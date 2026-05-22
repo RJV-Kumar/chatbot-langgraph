@@ -1,5 +1,5 @@
 import streamlit as st
-from app.chatbot import chatbot
+from app.chatbot import chatbot, retrieve_all_threads
 from langchain_core.messages import HumanMessage, AIMessage
 from app.utils import generate_thread_id
 
@@ -73,7 +73,7 @@ if "active_thread_id" not in st.session_state:
     st.session_state["active_thread_id"] = generate_thread_id()
 
 if "chat_thread_ids" not in st.session_state:
-    st.session_state["chat_thread_ids"] = []
+    st.session_state["chat_thread_ids"] = retrieve_all_threads()
 
 add_chat_thread(st.session_state["active_thread_id"])
 
