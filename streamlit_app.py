@@ -17,19 +17,25 @@ def add_thread(thread_id):
 
 def load_sidebar_threads():
     for thread_id in st.session_state['chat_threads'][::-1]:  # Display in reverse order (most recent first)
-        if st.sidebar.button(str(thread_id)):
+
+        messages = load_conversation(thread_id)
+
+        temp_messages = []
+        first_user_message = "New Chat"
+
+        for msg in messages:
+            if isinstance(msg, HumanMessage):
+                role = "user"
+                
+                if first_user_message == "New Chat":
+                    first_user_message = msg.content
+            else:
+                role = "assistant"
+            temp_messages.append({"role": role, 'content': msg.content})
+        
+        # use first user message as button text
+        if st.sidebar.button(first_user_message, key=thread_id):
             st.session_state['thread_id'] = thread_id
-            messages = load_conversation(thread_id)
-
-            temp_messages = []
-
-            for msg in messages:
-                if isinstance(msg, HumanMessage):
-                    role = "user"
-                else:
-                    role = "assistant"
-                temp_messages.append({"role": role, 'content': msg.content})
-
             st.session_state["message_history"] = temp_messages
 
 def load_conversation(thread_id):
@@ -57,7 +63,7 @@ st.sidebar.title('LangGraph Chatbot')
 if st.sidebar.button('New Chat'):
     reset_chat()
 
-st.sidebar.header('My Conversations')
+st.sidebar.header('Recent Chats')
 
 load_sidebar_threads()
 
