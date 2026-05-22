@@ -4,101 +4,136 @@ from langchain_core.messages import HumanMessage, AIMessage
 from app.utils import generate_thread_id
 
 
-# **************** Utility functions ****************
-def reset_chat():
-    thread_id = generate_thread_id()
-    st.session_state['thread_id'] = thread_id
-    add_thread(st.session_state['thread_id'])
-    st.session_state["message_history"] = []
-    
-def add_thread(thread_id):
-    if thread_id not in st.session_state['chat_threads']:
-        st.session_state['chat_threads'].append(thread_id)
+# **************** Chat Thread Utilities ****************
 
-def load_sidebar_threads():
-    for thread_id in st.session_state['chat_threads'][::-1]:  # Display in reverse order (most recent first)
+def create_new_chat():
+    new_thread_id = generate_thread_id()
 
-        messages = load_conversation(thread_id)
+    st.session_state["active_thread_id"] = new_thread_id
+    add_chat_thread(new_thread_id)
 
-        temp_messages = []
-        first_user_message = "New Chat"
+    st.session_state["chat_history"] = []
 
-        for msg in messages:
-            if isinstance(msg, HumanMessage):
+
+def add_chat_thread(thread_id):
+    if thread_id not in st.session_state["chat_thread_ids"]:
+        st.session_state["chat_thread_ids"].append(thread_id)
+
+
+def fetch_conversation(thread_id):
+    graph_state = chatbot.get_state(
+        config={
+            "configurable": {
+                "thread_id": thread_id
+            }
+        }
+    )
+
+    return graph_state.values.get("messages", [])
+
+
+def render_sidebar_chat_threads():
+
+    for thread_id in st.session_state["chat_thread_ids"][::-1]:
+
+        conversation_messages = fetch_conversation(thread_id)
+
+        formatted_messages = []
+        chat_title = "New Chat"
+
+        for message in conversation_messages:
+
+            if isinstance(message, HumanMessage):
                 role = "user"
-                
-                if first_user_message == "New Chat":
-                    first_user_message = msg.content
+
+                # first user message becomes chat title
+                if chat_title == "New Chat":
+                    chat_title = message.content
+
             else:
                 role = "assistant"
-            temp_messages.append({"role": role, 'content': msg.content})
-        
-        # use first user message as button text
-        if st.sidebar.button(first_user_message, key=thread_id):
-            st.session_state['thread_id'] = thread_id
-            st.session_state["message_history"] = temp_messages
 
-def load_conversation(thread_id):
-    state = chatbot.get_state(config={'configurable': {'thread_id': thread_id}})
-    #print(f"Loading conversation for thread_id: {state}")
-    return state.values.get('messages', [])
+            formatted_messages.append({
+                "role": role,
+                "content": message.content
+            })
 
+        if st.sidebar.button(chat_title, key=thread_id):
+
+            st.session_state["active_thread_id"] = thread_id
+            st.session_state["chat_history"] = formatted_messages
 
 
-# **************** Session setup for message history ****************
-if("message_history" not in st.session_state):
-    st.session_state["message_history"] = []
+# **************** Session State Initialization ****************
 
-if 'thread_id' not in st.session_state:
-    st.session_state['thread_id'] = generate_thread_id()
+if "chat_history" not in st.session_state:
+    st.session_state["chat_history"] = []
 
-if 'chat_threads' not in st.session_state:
-    st.session_state['chat_threads'] = []
-    
-add_thread(st.session_state['thread_id'])
+if "active_thread_id" not in st.session_state:
+    st.session_state["active_thread_id"] = generate_thread_id()
+
+if "chat_thread_ids" not in st.session_state:
+    st.session_state["chat_thread_ids"] = []
+
+add_chat_thread(st.session_state["active_thread_id"])
+
 
 # **************** Sidebar UI ****************
-st.sidebar.title('LangGraph Chatbot')
 
-if st.sidebar.button('New Chat'):
-    reset_chat()
+st.sidebar.title("LangGraph Chatbot")
 
-st.sidebar.header('Recent Chats')
+if st.sidebar.button("New Chat"):
+    create_new_chat()
 
-load_sidebar_threads()
+st.sidebar.header("Recent Chats")
+
+render_sidebar_chat_threads()
 
 
 # **************** Main Chat UI ****************
-#message_history = st.session_state["message_history"]
-for message in st.session_state["message_history"]:
-    with st.chat_message(message['role']):
-        st.text(message['content'])
 
-CONFIG = {
-        'configurable': {
-            'thread_id': st.session_state['thread_id']
-        }
+for chat_message in st.session_state["chat_history"]:
+
+    with st.chat_message(chat_message["role"]):
+        st.text(chat_message["content"])
+
+
+CHATBOT_CONFIG = {
+    "configurable": {
+        "thread_id": st.session_state["active_thread_id"]
     }
-user_input = st.chat_input("Type your message here...")
+}
 
-if user_input:
 
-    # save to message history
-    st.session_state["message_history"].append({"role": "user", "content": user_input});
+user_prompt = st.chat_input("Type your message here...")
+
+
+if user_prompt:
+
+    st.session_state["chat_history"].append({
+        "role": "user",
+        "content": user_prompt
+    })
+
     with st.chat_message("user"):
-        st.text(user_input)
-
+        st.text(user_prompt)
 
     with st.chat_message("assistant"):
-        def ai_only_stream():
-            for message_chunk, metadata in chatbot.stream(
-                {"messages": [HumanMessage(content=user_input)]},
-                config=CONFIG,
-                stream_mode='messages'
-            ):
-                if isinstance(message_chunk, AIMessage):
-                    yield message_chunk.content
-        llm_response = st.write_stream(ai_only_stream())
-    st.session_state["message_history"].append({"role": "assistant", "content": llm_response});
 
-    
+        def stream_ai_response():
+
+            for response_chunk, metadata in chatbot.stream(
+                {"messages": [HumanMessage(content=user_prompt)]},
+                config=CHATBOT_CONFIG,
+                stream_mode="messages"
+            ):
+
+                if isinstance(response_chunk, AIMessage):
+                    yield response_chunk.content
+
+        assistant_response = st.write_stream(stream_ai_response())
+
+    st.session_state["chat_history"].append({
+        "role": "assistant",
+        "content": assistant_response
+    })
